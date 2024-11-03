@@ -18,7 +18,7 @@
 		<select id="modelSelect">
 			<option value="linear-regression">Regresión Lineal</option>
 			<option value="polynomial-regression">Regresión Polinomial</option>
-			<option value="decision-tree">Árbol de Decisión</option>
+			<option value="kmeans">KMeans</option>
 		</select>
 
 		<br /><br />
@@ -37,7 +37,11 @@
 				id="parametersTable"
 				style="height: 200px; overflow: auto; border: 1px solid grey"></table>
 		</div>
-
+		<div id="kmeansOptions" style="display: none;">
+			Número de clusters: <input type="number" id="numClusters" value="3" min="1" />
+			<br> Número de iteraciones: <input type="number" id="numIterations" value="10" min="1" />
+		</div>
+		
 		<div
 			id="polynomialDegreeDiv"
 			style="display: none">
@@ -119,12 +123,19 @@
 					document.getElementById("fileInput").style.display = "block"
 					document.getElementById("data-csv").style.display = "block"
 					document.getElementById("polynomialDegreeDiv").style.display = "none"
+					document.getElementById("kmeansOptions").style.display = "none"
 				} else if (
 					document.getElementById("modelSelect").value == "polynomial-regression"
 				) {
 					document.getElementById("fileInput").style.display = "block"
 					document.getElementById("data-csv").style.display = "block"
 					document.getElementById("polynomialDegreeDiv").style.display = "block"
+					document.getElementById("kmeansOptions").style.display = "none"
+				} else if (document.getElementById("modelSelect").value == "kmeans") {
+					document.getElementById("fileInput").style.display = "block"
+					document.getElementById("data-csv").style.display = "block"
+					document.getElementById("polynomialDegreeDiv").style.display = "none"
+					document.getElementById("kmeansOptions").style.display = "block"
 				}
 			}
 
@@ -136,6 +147,7 @@
 				const modelType = document.getElementById("modelSelect").value
 				if (modelType === "linear-regression") processLinearRegression()
 				else if (modelType === "polynomial-regression") processPolynomialRegression()
+				else if (modelType === "kmeans") processKMeans()
 				else alert("Modelo no soportado")
 			}
 
@@ -155,6 +167,55 @@
 				polyModel.fit(dataX, dataY, degree)
 				displayResults(dataX, dataY, polyModel.predict(dataX), "Regresión Polinomial")
 			}
+
+			function processKMeans() {
+				const k = parseInt(document.getElementById("numClusters").value);
+				const iterations = parseInt(document.getElementById("numIterations").value);
+				const dataPoints = dataX.map((x, i) => [x, dataY[i]]);
+			
+				const kmeansModel = new _2DKMeans();
+				const clusteredData = kmeansModel.clusterize(k, dataPoints, iterations);
+			
+				displayKMeansResults(dataPoints, clusteredData);
+			}
+			function displayKMeansResults(dataPoints, clusteredData) {
+				// Mostrar datos en una tabla
+				const tableHTML = `
+					<h2>Resultados de KMeans</h2>
+					<table>
+						<thead>
+							<tr><th>Punto (X,Y)</th><th>Cluster</th><th>Distancia</th></tr>
+						</thead>
+						<tbody>
+							${clusteredData.map(([point, cluster, distance]) => `
+								<tr>
+									<td>(${point[0]}, ${point[1]})</td>
+									<td>(${cluster[0]}, ${cluster[1]})</td>
+									<td>${distance.toFixed(2)}</td>
+								</tr>`).join('')}
+						</tbody>
+					</table>`;
+				document.getElementById("output-table").innerHTML = tableHTML;
+			
+				// Gráfico de los clusters
+				drawKMeansGraph(dataPoints, clusteredData);
+			}
+			
+			function drawKMeansGraph(dataPoints, clusteredData) {
+				const graphData = [["X", "Y", { role: "style" }]].concat(
+					dataPoints.map((point, i) => [point[0], point[1], clusteredData[i][1]])
+				);
+			
+				google.charts.load("current", { packages: ["corechart"] });
+				google.charts.setOnLoadCallback(() => {
+					const data = google.visualization.arrayToDataTable(graphData);
+					const options = { title: "Clusters KMeans", legend: { position: "none" } };
+					const chart = new google.visualization.ScatterChart(document.getElementById("output-graph"));
+					chart.draw(data, options);
+				});
+			}
+			
+			
 
 			function displayResults(xData, yData, predictions, title) {
 				const tableHTML = `
