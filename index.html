@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0" />
+		<title>Proyecto de Machine Learning</title>
+		<link
+			rel="stylesheet"
+			href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css" />
+		<script
+			type="text/javascript"
+			src="https://www.gstatic.com/charts/loader.js"></script>
+		<!-- Importar la biblioteca tytus.js desde la carpeta dist -->
+	</head>
+	<body>
+		<h1>Proyecto de Machine Learning</h1>
+
+		<label for="modelSelect">Selecciona un modelo:</label>
+		<select id="modelSelect">
+			<option value="linear-regression">Regresión Lineal</option>
+			<option value="polynomial-regression">Regresión Polinomial</option>
+			<option value="decision-tree">Árbol de decisión</option></select
+		><br /><br />
+		<!-- Carga de archivo CSV -->
+		<label for="fileInput">Cargar archivo CSV:</label>
+		<input
+			type="file"
+			id="fileInput"
+			accept=".csv" /><br /><br />
+
+		<div
+			id="data-csv"
+			style="display: block">
+			<h2>Valores del archivo CSV</h2>
+
+			<table
+				id="parametersTable"
+				style="height: 200px; overflow: auto; border: 1px solid grey"></table>
+		</div>
+
+		<div
+			style="display: none"
+			id="polynomialDegreeDiv">
+			Grado del polinomio:
+			<input
+				type="number"
+				value="0"
+				id="polynomialDegree" />
+		</div>
+
+		<!-- Botones de operación -->
+		<div style="display: flex">
+			<button id="trainButton">Entrenar, predecir y graficar modelo</button>
+			<button
+				id="Clear"
+				onclick="clearResults()">
+				Limpiar Resultados
+			</button>
+		</div>
+
+		<!-- Grafioc -->
+		<div id="output-table"></div>
+		<div id="output-graph"></div>
+
+		<script
+			type="text/javascript"
+			src="tytus/tytus.js"></script>
+		<script>
+			let dataX = []
+			let dataY = []
+
+			// Limpiar resultados de la tabla y el gráfico
+			function clearResults() {
+				document.getElementById("output-table").innerHTML = ""
+				document.getElementById("output-graph").innerHTML = ""
+			}
+
+			// Limpiar datos del CSV cargado y resultados al cambiar el modelo
+			function resetData() {
+				// Limpiar la selección de archivo
+				document.getElementById("fileInput").value = ""
+				dataX = []
+				dataY = []
+
+				// Limpiar la tabla de parámetros y los resultados en pantalla
+
+				const table = document.getElementById("parametersTable")
+				while (table.rows.length > 0) {
+					table.deleteRow(0) // Eliminar cada fila desde la primera
+				}
+
+				clearResults()
+			}
+
+			document.getElementById("fileInput").onchange = function () {
+				var file = document.getElementById("fileInput").files[0]
+				var reader = new FileReader()
+				reader.readAsText(file)
+				reader.onload = function () {
+					var lines = reader.result.split("\n")
+					var header = lines[0].split(",")
+					var table = document.getElementById("parametersTable")
+
+					var headerRow = table.insertRow()
+					for (var i = 0; i < header.length; i++) {
+						var cell = headerRow.insertCell()
+						cell.innerHTML = header[i]
+					}
+
+					for (var i = 1; i < lines.length; i++) {
+						var row = table.insertRow()
+						var values = lines[i].split(",")
+						for (var j = 0; j < values.length; j++) {
+							var cell = row.insertCell()
+							cell.innerHTML = values[j]
+						}
+					}
+
+					for (var i = 1; i < lines.length; i++) {
+						var values = lines[i].split(",")
+						dataX.push(parseFloat(values[0]))
+						dataY.push(parseFloat(values[1]))
+					}
+
+					var columnX = document.getElementById("columnX")
+					var columnY = document.getElementById("columnY")
+					for (var i = 0; i < header.length; i++) {
+						var optionX = document.createElement("option")
+						optionX.text = header[i]
+						optionX.value = i
+						columnX.add(optionX)
+						var optionY = document.createElement("option")
+						optionY.text = header[i]
+						optionY.value = i
+						columnY.add(optionY)
+					}
+				}
+			}
+
+			document.getElementById("modelSelect").onchange = function () {
+				resetData()
+
+				console.log(document.getElementById("modelSelect").value)
+				if (document.getElementById("modelSelect").value == "linear-regression") {
+					document.getElementById("fileInput").style.display = "block"
+					document.getElementById("data-csv").style.display = "block"
+					document.getElementById("polynomialDegreeDiv").style.display = "none"
+				} else if (
+					document.getElementById("modelSelect").value == "polynomial-regression"
+				) {
+					document.getElementById("fileInput").style.display = "block"
+					document.getElementById("data-csv").style.display = "block"
+					document.getElementById("polynomialDegreeDiv").style.display = "block"
+				}
+			}
+
+			document.getElementById("trainButton").onclick = function () {
+				// Verificar que se haya cargado un archivo
+				if (dataX.length === 0 || dataY.length === 0) {
+					alert("Cargue un archivo CSV primero")
+					return
+				}
+
+				if (document.getElementById("modelSelect").value == "linear-regression") {
+					processLinearRegression()
+				} else if (
+					document.getElementById("modelSelect").value == "polynomial-regression"
+				) {
+					processPolynomialRegression()
+				} else {
+					alert("Modelo no soportado")
+				}
+			}
+
+			function processLinearRegression() {
+				console.log({ dataX, dataY })
+				let linearRegresion = new LinearRegression()
+				linearRegresion.fit(dataX, dataY)
+				let result = linearRegresion.predict(dataX)
+
+				// Crear el HTML de la tabla y asegurar la estructura
+				let displayTable = document.getElementById("output-table")
+				displayTable.innerHTML =
+					"<h2>Resultados</h2><table><thead><tr><th>X</th><th>Y</th><th>Y-Predicción</th><th>Error %</th></tr></thead><tbody id='resultTableBody'></tbody></table>"
+
+				// Seleccionar el tbody para añadir las filas
+				let tbody = document.getElementById("resultTableBody")
+
+				for (let i = 0; i < dataX.length; i++) {
+					const x = dataX[i]
+					const y = dataY[i]
+					const yPred = result[i]
+
+					let row = document.createElement("tr")
+					let xCol = document.createElement("td")
+					xCol.innerText = x.toString()
+					let yCol = document.createElement("td")
+					yCol.innerText = y.toString()
+					let yPredCol = document.createElement("td")
+					yPredCol.innerText = yPred.toString()
+					let errCol = document.createElement("td")
+					errCol.innerHTML =
+						(Math.abs(parseFloat(y) - parseFloat(yPred)) / parseFloat(y) === Infinity
+							? 1.0
+							: Math.abs(parseFloat(y) - parseFloat(yPred)) / parseFloat(y)) * 100.0
+
+					row.appendChild(xCol)
+					row.appendChild(yCol)
+					row.appendChild(yPredCol)
+					row.appendChild(errCol)
+
+					// Agregar la fila al cuerpo de la tabla
+					tbody.appendChild(row)
+				}
+
+				// Configuración del gráfico de regresión lineal
+				let graphDataSet = []
+				graphDataSet.push(["X", "Y", "Predicted"])
+				for (let i = 0; i < dataX.length; i++) {
+					graphDataSet.push([dataX[i], dataY[i], result[i]])
+				}
+
+				google.charts.load("current", { packages: ["corechart"] })
+				google.charts.setOnLoadCallback(drawChart)
+
+				function drawChart() {
+					var data = google.visualization.arrayToDataTable(graphDataSet)
+					var options = {
+						title: "Linear Regression",
+						curveType: "function",
+						legend: { position: "bottom" },
+					}
+					var chart = new google.visualization.LineChart(
+						document.getElementById("output-graph")
+					)
+					chart.draw(data, options)
+				}
+			}
+
+			function processPolynomialRegression() {
+				// Obtener valor del grado del polinomio
+				const degree = parseInt(document.getElementById("polynomialDegree").value)
+				if (degree === NaN || degree === undefined || degree === null || degree <= 0) {
+					alert("Ingrese el grado del polinomio")
+					return
+				}
+
+				console.log({ dataX, dataY, degree })
+				let polynomialModel = new PolynomialRegression()
+				polynomialModel.fit(dataX, dataY, degree)
+				let predictions = polynomialModel.predict(dataX)
+
+				// Crear el HTML de la tabla y asegurar la estructura
+				let displayTable = document.getElementById("output-table")
+				displayTable.innerHTML =
+					"<h2>Resultados</h2><table><thead><tr><th>X</th><th>Y</th><th>Y-Predicción</th><th>Error %</th></tr></thead><tbody id='resultTableBody'></tbody></table>"
+				let tbody = document.getElementById("resultTableBody")
+
+				for (let i = 0; i < dataX.length; i++) {
+					const x = dataX[i]
+					const y = dataY[i]
+					const yPred = predictions[i]
+
+					let row = document.createElement("tr")
+					let xCol = document.createElement("td")
+					xCol.innerText = x.toString()
+					let yCol = document.createElement("td")
+					yCol.innerText = y.toString()
+					let yPredCol = document.createElement("td")
+					yPredCol.innerText = yPred.toString()
+					let errCol = document.createElement("td")
+					errCol.innerHTML =
+						(Math.abs(parseFloat(y) - parseFloat(yPred)) / parseFloat(y) === Infinity
+							? 1.0
+							: Math.abs(parseFloat(y) - parseFloat(yPred)) / parseFloat(y)) * 100.0
+
+					row.appendChild(xCol)
+					row.appendChild(yCol)
+					row.appendChild(yPredCol)
+					row.appendChild(errCol)
+
+					tbody.appendChild(row)
+				}
+
+				// Configuración del gráfico de regresión polinomial
+				let graphDataSet = []
+				graphDataSet.push(["X", "Y", "Predicted"])
+				for (let i = 0; i < dataX.length; i++) {
+					graphDataSet.push([dataX[i], dataY[i], predictions[i]])
+				}
+
+				google.charts.load("current", { packages: ["corechart"] })
+				google.charts.setOnLoadCallback(drawChart)
+
+				function drawChart() {
+					var data = google.visualization.arrayToDataTable(graphDataSet)
+					var options = {
+						title: "Polynomial Regression",
+						curveType: "function",
+						legend: { position: "bottom" },
+					}
+					var chart = new google.visualization.LineChart(
+						document.getElementById("output-graph")
+					)
+					chart.draw(data, options)
+				}
+			}
+		</script>
+	</body>
+</html>
